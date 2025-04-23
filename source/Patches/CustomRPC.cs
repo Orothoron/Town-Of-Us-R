@@ -3,6 +3,8 @@ namespace TownOfUs
     public enum CustomRPC
     {
         SetRole = 100,
+        DraftModePick,
+        DraftModePickOrder,
         SetModifier,
         SetCouple,
         SetAssassin,
