@@ -12,6 +12,7 @@ using Random = UnityEngine.Random;
 using TownOfUs.Extensions;
 using AmongUs.GameOptions;
 using TownOfUs.ImpostorRoles.TraitorMod;
+using Reactor.Utilities;
 
 namespace TownOfUs.Roles
 {
@@ -384,15 +385,15 @@ namespace TownOfUs.Roles
         {
             var role = (T)Activator.CreateInstance(type, new object[] { player });
 
-            Utils.Rpc(rpc, player.PlayerId);
+            //Utils.Rpc(rpc, player.PlayerId);
             return role;
         }
 
         public static T GenRole<T>(Type type, PlayerControl player)
         {
-            var role = (T)Activator.CreateInstance(type, new object[] { player });
+                        var role = (T)Activator.CreateInstance(type, new object[] { player });
 
-            Utils.Rpc(CustomRPC.SetRole, player.PlayerId, (string)type.FullName);
+            //Utils.Rpc(CustomRPC.SetRole, player.PlayerId, (string)type.FullName);
             return role;
         }
 
@@ -400,7 +401,7 @@ namespace TownOfUs.Roles
         {
             var modifier = (T)Activator.CreateInstance(type, new object[] { player });
 
-            Utils.Rpc(CustomRPC.SetModifier, player.PlayerId, (string)type.FullName);
+            //Utils.Rpc(CustomRPC.SetModifier, player.PlayerId, (string)type.FullName);
             return modifier;
         }
 

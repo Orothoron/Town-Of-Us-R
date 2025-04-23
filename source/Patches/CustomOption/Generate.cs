@@ -134,6 +134,7 @@ namespace TownOfUs.CustomOption
         public static CustomNumberOption LargeMapDecreasedLongTasks;
 
         public static CustomHeaderOption CustomGameSettings;
+        public static CustomToggleOption DraftMode;
         public static CustomToggleOption ColourblindComms;
         public static CustomToggleOption CamoCommsKillAnyone;
         public static CustomToggleOption ImpostorSeeRoles;
@@ -891,6 +892,7 @@ namespace TownOfUs.CustomOption
 
             CustomGameSettings =
                 new CustomHeaderOption(num++, MultiMenu.main, "Custom Game Settings");
+            DraftMode = new CustomToggleOption(num++, MultiMenu.main, "Draft Mode", false);
             ColourblindComms = new CustomToggleOption(num++, MultiMenu.main, "Camouflaged Comms", false);
             CamoCommsKillAnyone = new CustomToggleOption(num++, MultiMenu.main, "Kill Anyone During Camouflaged Comms", false);
             ImpostorSeeRoles = new CustomToggleOption(num++, MultiMenu.main, "Impostors Can See The Roles Of Their Team", false);
