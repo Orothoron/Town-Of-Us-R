@@ -13,6 +13,8 @@ using TownOfUs.Extensions;
 using AmongUs.GameOptions;
 using TownOfUs.ImpostorRoles.TraitorMod;
 using Reactor.Utilities;
+using Il2CppSystem.Xml.Schema;
+using System.Threading.Tasks;
 
 namespace TownOfUs.Roles
 {
@@ -368,19 +370,52 @@ namespace TownOfUs.Roles
                 $"{ColorString}Role: {Name}\n{TaskText()}</color>";
         }
 
+        public void RegenTaskDraft()
+        {
+            Array Tasks = Player.myTasks.ToArray();
+            foreach (var task in Tasks){
+                PluginSingleton<TownOfUs>.Instance.Log.LogMessage(task);
+            }
+            bool createTask;
+            try
+            {
+                var firstText = Player.myTasks.ToArray()[0].Cast<ImportantTextTask>();
+                createTask = !firstText.Text.Contains("Role:");
+                Player.myTasks.RemoveAt(0);
+                Player.myTasks.RemoveAt(0);
+            }
+            catch (InvalidCastException)
+            {
+                createTask = true;
+            }
+            
+            
+            if (createTask)
+            {
+                var task = new GameObject(Name + "Task").AddComponent<ImportantTextTask>();
+                task.transform.SetParent(Player.transform, false);
+                task.Text = $"{ColorString}Role: {Name}\n{TaskText()}</color>";
+                Player.myTasks.Insert(0, task);
+                return;
+            }
+
+            Player.myTasks.ToArray()[0].Cast<ImportantTextTask>().Text =
+                $"{ColorString}Role: {Name}\n{TaskText()}</color>";
+        }
+
         public static T Gen<T>(Type type, PlayerControl player, CustomRPC rpc)
         {
             var role = (T)Activator.CreateInstance(type, new object[] { player });
 
-            //Utils.Rpc(rpc, player.PlayerId);
+            Utils.Rpc(rpc, player.PlayerId);
             return role;
         }
 
         public static T GenRole<T>(Type type, PlayerControl player)
         {
-                        var role = (T)Activator.CreateInstance(type, new object[] { player });
+            var role = (T)Activator.CreateInstance(type, new object[] { player });
 
-            //Utils.Rpc(CustomRPC.SetRole, player.PlayerId, (string)type.FullName);
+            Utils.Rpc(CustomRPC.SetRole, player.PlayerId, (string)type.FullName);
             return role;
         }
 
@@ -388,7 +423,7 @@ namespace TownOfUs.Roles
         {
             var modifier = (T)Activator.CreateInstance(type, new object[] { player });
 
-            //Utils.Rpc(CustomRPC.SetModifier, player.PlayerId, (string)type.FullName);
+            Utils.Rpc(CustomRPC.SetModifier, player.PlayerId, (string)type.FullName);
             return modifier;
         }
 
