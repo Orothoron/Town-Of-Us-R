@@ -219,5 +219,7 @@ namespace TownOfUs.Roles.Modifiers
         {
             return AllAbilities.Where(x => x.AbilityType == abilitytype);
         }
+
+        
     }
 }

@@ -386,9 +386,6 @@ namespace TownOfUs.Roles
         public void RegenTaskDraft()
         {
             Array Tasks = Player.myTasks.ToArray();
-            foreach (var task in Tasks){
-                PluginSingleton<TownOfUs>.Instance.Log.LogMessage(task);
-            }
             bool createTask;
             try
             {

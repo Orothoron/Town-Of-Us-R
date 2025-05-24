@@ -54,6 +54,7 @@ namespace TownOfUs
     {
         private static readonly List<(Type, int, bool, string)> CrewmateInvestigativeRoles = new();
         private static readonly List<(Type, int, bool, string)> CrewmateKillingRoles = new();
+        private static readonly List<(Type, int, bool, string)> CrewmatePowerRoles = new();
         private static readonly List<(Type, int, bool, string)> CrewmateProtectiveRoles = new();
         private static readonly List<(Type, int, bool, string)> CrewmateSupportRoles = new();
         private static readonly List<(Type, int, bool, string)> NeutralBenignRoles = new();
@@ -190,6 +191,12 @@ namespace TownOfUs
 
             if (CustomGameOptions.DeputyOn > 0)
                 CrewmateKillingRoles.Add((typeof(Deputy), CustomGameOptions.DeputyOn, false || CustomGameOptions.UniqueRoles, "Deputy"));
+
+            if (CustomGameOptions.PlumberOn > 0)
+                CrewmateSupportRoles.Add((typeof(Plumber), CustomGameOptions.PlumberOn, false || CustomGameOptions.UniqueRoles, "Plumber"));
+
+            if (CustomGameOptions.ClericOn > 0)
+                CrewmateProtectiveRoles.Add((typeof(Cleric), CustomGameOptions.ClericOn, false || CustomGameOptions.UniqueRoles, "Cleric"));
             #endregion
             #region Neutral Roles
             if (CustomGameOptions.JesterOn > 0)
@@ -230,6 +237,9 @@ namespace TownOfUs
 
             if (CustomGameOptions.JuggernautOn > 0)
                 NeutralKillingRoles.Add((typeof(Juggernaut), CustomGameOptions.JuggernautOn, true, "Juggernaut"));
+
+            if (CustomGameOptions.MercenaryOn > 0)
+                NeutralBenignRoles.Add((typeof(Mercenary), CustomGameOptions.MercenaryOn, false || CustomGameOptions.UniqueRoles, "Mercenary"));
             #endregion
             #region Impostor Roles
             if (CustomGameOptions.UndertakerOn > 0)
@@ -270,6 +280,9 @@ namespace TownOfUs
 
             if (CustomGameOptions.ScavengerOn > 0)
                 ImpostorKillingRoles.Add((typeof(Scavenger), CustomGameOptions.ScavengerOn, false || CustomGameOptions.UniqueRoles, "Scavenger"));
+
+            if (CustomGameOptions.EclipsalOn > 0)
+                ImpostorConcealingRoles.Add((typeof(Eclipsal), CustomGameOptions.EclipsalOn, false || CustomGameOptions.UniqueRoles, "Eclipsal"));
             #endregion
             #region Crewmate Modifiers
             if (Check(CustomGameOptions.TorchOn) && GameOptionsManager.Instance.currentNormalGameOptions.MapId != 5)
@@ -289,6 +302,12 @@ namespace TownOfUs
 
             if (Check(CustomGameOptions.FrostyOn))
                 CrewmateModifiers.Add((typeof(Frosty), CustomGameOptions.FrostyOn));
+
+            if (Check(CustomGameOptions.CelebrityOn))
+                CrewmateModifiers.Add((typeof(Celebrity), CustomGameOptions.CelebrityOn));
+
+            if (Check(CustomGameOptions.TaskmasterOn) && !SubmergedCompatibility.isSubmerged())
+                CrewmateModifiers.Add((typeof(Taskmaster), CustomGameOptions.TaskmasterOn));
             #endregion
             #region Global Modifiers
             if (Check(CustomGameOptions.TiebreakerOn))
@@ -320,6 +339,12 @@ namespace TownOfUs
 
             if (Check(CustomGameOptions.MiniOn))
                 GlobalModifiers.Add((typeof(Mini), CustomGameOptions.MiniOn));
+
+            if (Check(CustomGameOptions.ImmovableOn) && !SubmergedCompatibility.isSubmerged())
+                GlobalModifiers.Add((typeof(Immovable), CustomGameOptions.ImmovableOn));
+
+            if (Check(CustomGameOptions.SatelliteOn))
+                GlobalModifiers.Add((typeof(Satellite), CustomGameOptions.SatelliteOn));
             #endregion
             #region Impostor Modifiers
             if (Check(CustomGameOptions.DisperserOn) && GameOptionsManager.Instance.currentNormalGameOptions.MapId < 4)
@@ -685,6 +710,14 @@ namespace TownOfUs
             {
                 RpcSetRole.setstartstate();
             }
+            else
+            {
+                timer = 0f;
+                float maxTimer = 5;
+                while (timer < maxTimer){
+                    timer += Time.deltaTime;
+                }
+            }
             refreshRoleDescription(PlayerControl.LocalPlayer);
             float myTimer = 0f;
             while (myTimer < 3f)
@@ -699,10 +732,24 @@ namespace TownOfUs
             yield break;
         }
 
+        public static void refreshModifierDescription(PlayerControl player) {
+            var modifiers = Modifier.GetModifiers(player);
+            foreach (Modifier modifier in modifiers)
+            {
+                modifier.RegenTaskDraft();
+            }
+
+        }
+
 
         public static void refreshRoleDescription(PlayerControl player) {
             Role role = Role.GetRole(player);
             role.RegenTaskDraft();
+            var modifiers = Modifier.GetModifiers(player);
+            foreach (Modifier modifier in modifiers)
+            {
+                modifier.RegenTaskDraft();
+            }
             // var task = new GameObject("RoleTask").AddComponent<ImportantTextTask>();
             // task.transform.SetParent(player.transform, false);
             // task.Text = role.TaskText();
@@ -914,28 +961,6 @@ namespace TownOfUs
             return selectedRole;
         }
 
-        private static void SortModifiers(this List<(Type, int)> roles, int max)
-        {
-            var newList = roles.Where(x => x.Item2 == 100).ToList();
-            newList.Shuffle();
-
-            if (roles.Count < max)
-                max = roles.Count;
-
-            var roles2 = roles.Where(x => x.Item2 < 100).ToList();
-            roles2.Shuffle();
-            newList.AddRange(roles2.Where(x => Check(x.Item2)));
-
-            while (newList.Count > max)
-            {
-                newList.Shuffle();
-                newList.RemoveAt(newList.Count - 1);
-            }
-
-            roles = newList;
-            roles.Shuffle();
-        }
-
         private static void GenEachRole(List<NetworkedPlayerInfo> infected)
         {
             var impostors = Utils.GetImpostors(infected);
@@ -946,25 +971,18 @@ namespace TownOfUs
 
             // sort out bad lists
             var players = impostors.Count + crewmates.Count;
-            List<RoleOptions> crewBuckets = [RoleOptions.CrewInvest, RoleOptions.CrewKilling, RoleOptions.CrewProtective, RoleOptions.CrewSupport, RoleOptions.CrewCommon, RoleOptions.CrewRandom];
+            List<RoleOptions> crewNKBuckets = [RoleOptions.CrewInvest, RoleOptions.CrewKilling, RoleOptions.CrewPower, RoleOptions.CrewProtective,
+                RoleOptions.CrewSupport, RoleOptions.CrewCommon, RoleOptions.CrewSpecial, RoleOptions.CrewRandom, RoleOptions.NeutKilling];
             List<RoleOptions> impBuckets = [RoleOptions.ImpConceal, RoleOptions.ImpKilling, RoleOptions.ImpSupport, RoleOptions.ImpCommon, RoleOptions.ImpRandom];
             List<RoleOptions> buckets = [CustomGameOptions.Slot1, CustomGameOptions.Slot2, CustomGameOptions.Slot3, CustomGameOptions.Slot4];
-            var crewCount = 0;
-            var possibleCrewCount = 0;
             var impCount = 0;
             var anySlots = 0;
-            var minCrewmates = 2;
-            var empty = 0;
 
             if (players > 4) buckets.Add(CustomGameOptions.Slot5);
             if (players > 5) buckets.Add(CustomGameOptions.Slot6);
             if (players > 6) buckets.Add(CustomGameOptions.Slot7);
             if (players > 7) buckets.Add(CustomGameOptions.Slot8);
-            if (players > 8)
-            {
-                buckets.Add(CustomGameOptions.Slot9);
-                minCrewmates += 1;
-            }
+            if (players > 8) buckets.Add(CustomGameOptions.Slot9);
             if (players > 9) buckets.Add(CustomGameOptions.Slot10);
             if (players > 10) buckets.Add(CustomGameOptions.Slot11);
             if (players > 11) buckets.Add(CustomGameOptions.Slot12);
@@ -1014,31 +1032,46 @@ namespace TownOfUs
             }
 
             // crew and neut issues
+            var noChange = false;
+            var nonImp = false;
+            var randNeut = false;
             foreach (var roleOption in buckets)
             {
-                if (crewBuckets.Contains(roleOption)) crewCount += 1;
-                else if (roleOption == RoleOptions.NonImp) possibleCrewCount += 1;
-            }
-            while (crewCount < minCrewmates)
-            {
-                buckets.Shuffle();
-                if (possibleCrewCount > 0)
+                if (crewNKBuckets.Contains(roleOption))
                 {
-                    buckets.Remove(buckets.FindLast(x => x == RoleOptions.NonImp));
-                    possibleCrewCount -= 1;
+                    noChange = true;
+                    break;
+                }
+                else if (roleOption == RoleOptions.NeutRandom)
+                {
+                    randNeut = true;
+                    break;
+                }
+                else if (roleOption == RoleOptions.NonImp)
+                {
+                    nonImp = true;
+                    break;
+                }
+            }
+            if (!noChange)
+            {
+                List<RoleOptions> add = [RoleOptions.CrewRandom, RoleOptions.NeutKilling];
+                add.Shuffle();
+                if (randNeut)
+                {
+                    buckets.Remove(RoleOptions.NeutRandom);
+                    buckets.Add(RoleOptions.NeutKilling);
+                }
+                else if (nonImp)
+                {
+                    buckets.Remove(RoleOptions.NonImp);
+                    buckets.Add(add[0]);
                 }
                 else
                 {
-                    buckets.Remove(buckets.FindLast(x => !impBuckets.Contains(x) && !crewBuckets.Contains(x)));
+                    buckets.Remove(buckets.FindLast(x => !impBuckets.Contains(x)));
+                    buckets.Add(add[0]);
                 }
-                buckets.Add(RoleOptions.CrewRandom);
-                crewCount += 1;
-            }
-            if (possibleCrewCount > 1)
-            {
-                buckets.Remove(buckets.FindLast(x => x == RoleOptions.NonImp));
-                buckets.Add(RoleOptions.NeutRandom);
-                possibleCrewCount -= 1;
             }
             
             PluginSingleton<TownOfUs>.Instance.Log.LogMessage(buckets.Count);
@@ -1777,7 +1810,26 @@ namespace TownOfUs
                 if (addedRole.Item2 > 0 && !addedRole.Item3) CrewmateKillingRoles.Add(addedRole);
                 buckets.Remove(RoleOptions.CrewKilling);
             }
-            var randomCrewRoles = CrewmateKillingRoles;
+            var specialCrewRoles = CrewmateKillingRoles;
+            while (buckets.Contains(RoleOptions.CrewPower))
+            {
+                if (CrewmatePowerRoles.Count == 0)
+                {
+                    while (buckets.Contains(RoleOptions.CrewPower))
+                    {
+                        buckets.Remove(buckets.FindLast(x => x == RoleOptions.CrewPower));
+                        buckets.Add(RoleOptions.CrewSpecial);
+                    }
+                    break;
+                }
+                var addedRole = SelectRole(CrewmatePowerRoles, []);
+                crewRoles.Add(addedRole);
+                CrewmatePowerRoles.Remove(addedRole);
+                if (addedRole.Item2 >= 100) addedRole.Item2 -= 5;
+                if (addedRole.Item2 > 0 && !addedRole.Item3) CrewmatePowerRoles.Add(addedRole);
+                buckets.Remove(RoleOptions.CrewPower);
+            }
+            specialCrewRoles.AddRange(CrewmatePowerRoles);
             while (buckets.Contains(RoleOptions.CrewCommon))
             {
                 if (commonCrewRoles.Count == 0)
@@ -1796,7 +1848,26 @@ namespace TownOfUs
                 if (addedRole.Item2 > 0 && !addedRole.Item3) commonCrewRoles.Add(addedRole);
                 buckets.Remove(RoleOptions.CrewCommon);
             }
-            randomCrewRoles.AddRange(commonCrewRoles);
+            var randomCrewRoles = commonCrewRoles;
+            while (buckets.Contains(RoleOptions.CrewSpecial))
+            {
+                if (specialCrewRoles.Count == 0)
+                {
+                    while (buckets.Contains(RoleOptions.CrewSpecial))
+                    {
+                        buckets.Remove(buckets.FindLast(x => x == RoleOptions.CrewSpecial));
+                        buckets.Add(RoleOptions.CrewRandom);
+                    }
+                    break;
+                }
+                var addedRole = SelectRole(specialCrewRoles, []);
+                crewRoles.Add(addedRole);
+                specialCrewRoles.Remove(addedRole);
+                if (addedRole.Item2 >= 100) addedRole.Item2 -= 5;
+                if (addedRole.Item2 > 0 && !addedRole.Item3) specialCrewRoles.Add(addedRole);
+                buckets.Remove(RoleOptions.CrewSpecial);
+            }
+            randomCrewRoles.AddRange(specialCrewRoles);
             while (buckets.Contains(RoleOptions.CrewRandom))
             {
                 if (randomCrewRoles.Count == 0)
@@ -3049,9 +3120,12 @@ namespace TownOfUs
 
                 if (GameOptionsManager.Instance.CurrentGameOptions.GameMode == GameModes.HideNSeek) return;
 
-                PhantomOn = Check(CustomGameOptions.PhantomOn);
-                HaunterOn = Check(CustomGameOptions.HaunterOn);
-                TraitorOn = Check(CustomGameOptions.TraitorOn);
+                SetPhantom.PhantomOn = Check(CustomGameOptions.PhantomOn);
+                SetHaunter.HaunterOn = Check(CustomGameOptions.HaunterOn);
+                SetTraitor.TraitorOn = Check(CustomGameOptions.TraitorOn);
+
+                Utils.Rpc(CustomRPC.SetPostRoles, SetPhantom.PhantomOn ? (byte)0 : (byte)1,
+                    SetHaunter.HaunterOn ? (byte)0 : (byte)1, SetTraitor.TraitorOn ? (byte)0 : (byte)1);
 
                 foreach (var player2 in PlayerControl.AllPlayerControls)
                 {
@@ -3064,33 +3138,32 @@ namespace TownOfUs
                         player2.nameText().color = Patches.Colors.Crewmate;
                     }
                 }
+
+                // Hand out assassin ability to killers according to the settings.
                 var canHaveAbility = PlayerControl.AllPlayerControls.ToArray().Where(player => player.Is(Faction.Impostors)).ToList();
                 canHaveAbility.Shuffle();
                 var canHaveAbility2 = PlayerControl.AllPlayerControls.ToArray().Where(player => player.Is(Faction.NeutralKilling)).ToList();
                 canHaveAbility2.Shuffle();
 
-                var assassinConfig = new (List<PlayerControl>, int)[]
+                var assassinConfig = new (List<PlayerControl>, NumAssassins)[]
                 {
                     (canHaveAbility, CustomGameOptions.NumberOfImpostorAssassins),
                     (canHaveAbility2, CustomGameOptions.NumberOfNeutralAssassins)
                 };
-                foreach ((var abilityList, int maxNumber) in assassinConfig)
+                foreach ((var abilityList, NumAssassins maxNumber) in assassinConfig)
                 {
-                    int assassinNumber = maxNumber;
-                    while (abilityList.Count > 0 && assassinNumber > 0)
+                    if (maxNumber == NumAssassins.None) continue;
+                    while (abilityList.Count > 0)
                     {
-                        PluginSingleton<TownOfUs>.Instance.Log.LogMessage(AssassinAbility);
-                        PluginSingleton<TownOfUs>.Instance.Log.LogMessage(AssassinAbility.Count);
                         var (type, rpc, _) = AssassinAbility.Ability();
                         Role.Gen<Ability>(type, abilityList.TakeFirst(), rpc);
-                        assassinNumber -= 1;
+                        if (maxNumber == NumAssassins.One) break;
                     }
                 }
 
                 // Hand out assassin modifiers, if enabled, to impostor assassins.
                 var canHaveAssassinModifier = PlayerControl.AllPlayerControls.ToArray().Where(player => player.Is(Faction.Impostors) && player.Is(AbilityEnum.Assassin)).ToList();
                 canHaveAssassinModifier.Shuffle();
-                AssassinModifiers.SortModifiers(canHaveAssassinModifier.Count);
                 AssassinModifiers.Shuffle();
 
                 foreach (var (type, _) in AssassinModifiers)
@@ -3102,7 +3175,6 @@ namespace TownOfUs
                 // Hand out impostor modifiers.
                 var canHaveImpModifier = PlayerControl.AllPlayerControls.ToArray().Where(player => player.Is(Faction.Impostors) && !player.Is(ModifierEnum.DoubleShot)).ToList();
                 canHaveImpModifier.Shuffle();
-                ImpostorModifiers.SortModifiers(canHaveImpModifier.Count);
                 ImpostorModifiers.Shuffle();
 
                 foreach (var (type, _) in ImpostorModifiers)
@@ -3111,97 +3183,29 @@ namespace TownOfUs
                     Role.GenModifier<Modifier>(type, canHaveImpModifier);
                 }
 
+                // Now hand out Crewmate Modifiers to all remaining eligible players.
+                var canHaveCrewModifier = PlayerControl.AllPlayerControls.ToArray().Where(player => player.Is(Faction.Crewmates)).ToList();
+                canHaveCrewModifier.Shuffle();
+                CrewmateModifiers.Shuffle();
+
+                foreach (var (type, _) in CrewmateModifiers)
+                {
+                    if (canHaveCrewModifier.Count == 0) break;
+                    Role.GenModifier<Modifier>(type, canHaveCrewModifier);
+                }
+
                 // Hand out global modifiers.
-                var canHaveModifier = PlayerControl.AllPlayerControls.ToArray()
-                    .Where(player => !player.Is(ModifierEnum.Disperser) && !player.Is(ModifierEnum.DoubleShot) && !player.Is(ModifierEnum.Saboteur) && !player.Is(ModifierEnum.Underdog))
-                    .ToList();
+                var canHaveModifier = PlayerControl.AllPlayerControls.ToArray().ToList();
                 canHaveModifier.Shuffle();
-                GlobalModifiers.SortModifiers(canHaveModifier.Count);
                 GlobalModifiers.Shuffle();
 
                 foreach (var (type, id) in GlobalModifiers)
                 {
-                    if (canHaveModifier.Count == 0) break;
-                    if (type.FullName.Contains("Lover"))
-                    {
-                        if (canHaveModifier.Count == 1) continue;
-                        Lover.Gen(canHaveModifier);
-                    }
-                    else
-                    {
-                        Role.GenModifier<Modifier>(type, canHaveModifier);
-                    }
+                    if (type.FullName.Contains("Lover")) Lover.Gen(PlayerControl.AllPlayerControls.ToArray().ToList());
+                    else if (canHaveModifier.Count > 0) Role.GenModifier<Modifier>(type, canHaveModifier);
                 }
 
-                // The Glitch cannot have Button Modifiers.
-                canHaveModifier.RemoveAll(player => player.Is(RoleEnum.Glitch));
-                ButtonModifiers.SortModifiers(canHaveModifier.Count);
-
-                foreach (var (type, id) in ButtonModifiers)
-                {
-                    if (canHaveModifier.Count == 0) break;
-                    Role.GenModifier<Modifier>(type, canHaveModifier);
-                }
-
-                // Now hand out Crewmate Modifiers to all remaining eligible players.
-                canHaveModifier.RemoveAll(player => !player.Is(Faction.Crewmates));
-                CrewmateModifiers.SortModifiers(canHaveModifier.Count);
-                CrewmateModifiers.Shuffle();
-
-                while (canHaveModifier.Count > 0 && CrewmateModifiers.Count > 0)
-                {
-                    var (type, _) = CrewmateModifiers.TakeFirst();
-                    Role.GenModifier<Modifier>(type, canHaveModifier.TakeFirst());
-                }
-
-                // Set the Traitor, if there is one enabled.
-                var toChooseFromCrew = PlayerControl.AllPlayerControls.ToArray().Where(x => x.Is(Faction.Crewmates) && !x.Is(RoleEnum.Politician) && !x.Is(ModifierEnum.Lover)).ToList();
-                if (TraitorOn && toChooseFromCrew.Count != 0)
-                {
-                    var rand = Random.RandomRangeInt(0, toChooseFromCrew.Count);
-                    var pc = toChooseFromCrew[rand];
-
-                    SetTraitor.WillBeTraitor = pc;
-
-                    Utils.Rpc(CustomRPC.SetTraitor, pc.PlayerId);
-                }
-                else
-                {
-                    Utils.Rpc(CustomRPC.SetTraitor, byte.MaxValue);
-                }
-                toChooseFromCrew.RemoveAll(player => SetTraitor.WillBeTraitor == player);
-
-                // Set the Haunter, if there is one enabled.
-                if (HaunterOn && toChooseFromCrew.Count != 0)
-                {
-                    var rand = Random.RandomRangeInt(0, toChooseFromCrew.Count);
-                    var pc = toChooseFromCrew[rand];
-
-                    SetHaunter.WillBeHaunter = pc;
-
-                    Utils.Rpc(CustomRPC.SetHaunter, pc.PlayerId);
-                }
-                else
-                {
-                    Utils.Rpc(CustomRPC.SetHaunter, byte.MaxValue);
-                }
-
-                var toChooseFromNeut = PlayerControl.AllPlayerControls.ToArray().Where(x => (x.Is(Faction.NeutralBenign) || x.Is(Faction.NeutralEvil) || x.Is(Faction.NeutralKilling)) && !x.Is(ModifierEnum.Lover)).ToList();
-                if (PhantomOn && toChooseFromNeut.Count != 0)
-                {
-                    var rand = Random.RandomRangeInt(0, toChooseFromNeut.Count);
-                    var pc = toChooseFromNeut[rand];
-
-                    SetPhantom.WillBePhantom = pc;
-
-                    Utils.Rpc(CustomRPC.SetPhantom, pc.PlayerId);
-                }
-                else
-                {
-                    Utils.Rpc(CustomRPC.SetPhantom, byte.MaxValue);
-                }
-
-                var exeTargets = PlayerControl.AllPlayerControls.ToArray().Where(x => x.Is(Faction.Crewmates) && !x.Is(ModifierEnum.Lover) && !x.Is(RoleEnum.Politician) && !x.Is(RoleEnum.Prosecutor) && !x.Is(RoleEnum.Swapper) && !x.Is(RoleEnum.Vigilante) && !x.Is(RoleEnum.Jailor) && x != SetTraitor.WillBeTraitor).ToList();
+                var exeTargets = PlayerControl.AllPlayerControls.ToArray().Where(x => x.Is(Faction.Crewmates) && !x.Is(ModifierEnum.Lover) && !x.Is(RoleEnum.Politician) && !x.Is(RoleEnum.Prosecutor) && !x.Is(RoleEnum.Swapper) && !x.Is(RoleEnum.Vigilante) && !x.Is(RoleEnum.Jailor)).ToList();
                 foreach (var role in Role.GetRoles(RoleEnum.Executioner))
                 {
                     var exe = (Executioner)role;
@@ -3243,21 +3247,9 @@ namespace TownOfUs
                     }
                 }
 
-            //     #region Crewmate Roles
+            // #region Crewmate Roles
             // if (CustomGameOptions.PoliticianOn > 0)
-            //     CrewmateSupportRoles.Add((typeof(Politician), CustomGameOptions.PoliticianOn, true, "Politician"));
-
-            // if (CustomGameOptions.SheriffOn > 0)
-            //     CrewmateKillingRoles.Add((typeof(Sheriff), CustomGameOptions.SheriffOn, false || CustomGameOptions.UniqueRoles, "Sheriff"));
-
-            // if (CustomGameOptions.EngineerOn > 0)
-            //     CrewmateSupportRoles.Add((typeof(Engineer), CustomGameOptions.EngineerOn, false || CustomGameOptions.UniqueRoles, "Engineer"));
-
-            // if (CustomGameOptions.SwapperOn > 0)
-            //     CrewmateSupportRoles.Add((typeof(Swapper), CustomGameOptions.SwapperOn, true, "Swapper"));
-
-            // if (CustomGameOptions.InvestigatorOn > 0)
-            //     CrewmateInvestigativeRoles.Add((typeof(Investigator), CustomGameOptions.InvestigatorOn, false || CustomGameOptions.UniqueRoles, "Investigator"));
+            //     CrewmatePowerRoles.Add((typeof(Politician), CustomGameOptions.PoliticianOn, true));
 
             // if (CustomGameOptions.MedicOn > 0)
             //     CrewmateProtectiveRoles.Add((typeof(Medic), CustomGameOptions.MedicOn, true, "Medic"));
