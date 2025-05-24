@@ -17,8 +17,8 @@ namespace TownOfUs
         SetHaunter,
         CatchHaunter,
 
-        SetTraitor,
         TraitorSpawn,
+        AddTraitorRole,
 
         LoveWin,
         GlitchWin,
@@ -31,6 +31,7 @@ namespace TownOfUs
         WerewolfWin,
         SurvivorOnlyWin,
         VampireWin,
+        SoulCollectorWin,
 
         JanitorClean,
         FixLights,
@@ -77,9 +78,14 @@ namespace TownOfUs
         Fortify,
         Hypnotise,
         Jail,
-        Collect,
         Retribution,
         Camp,
+        Douse,
+        Flush,
+        Blind,
+        Bribe,
+        Barrier,
+        CelebDied,
 
         BypassKill,
         BypassMultiKill,
@@ -92,15 +98,13 @@ namespace TownOfUs
 
         Start,
         SyncCustomSettings,
-        FixAnimation,
+        SetPostRoles,
         SetPos,
         SetSettings,
         
         RemoveAllBodies,
         CheckMurder,
 
-        SubmergedFixOxygen,
-
-        ContentAddition
+        SubmergedFixOxygen
     }
 }

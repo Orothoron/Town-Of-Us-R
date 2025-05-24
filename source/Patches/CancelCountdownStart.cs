@@ -37,7 +37,7 @@ namespace TownOfUs.Patches
             CancelStartButton.OnClick = new();
             CancelStartButton.OnClick.AddListener((UnityEngine.Events.UnityAction)(() =>
             {
-                __instance.ResetStartState();
+                if (__instance.countDownTimer < 4f) __instance.ResetStartState();
             }));
             CancelStartButton.gameObject.SetActive(false);
         }
